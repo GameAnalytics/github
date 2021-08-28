@@ -1,0 +1,52 @@
+name: ECR image
+description: Builds and pushes AWS ECR image
+inputs:
+  aws-access-key-id:
+    description: 'AWS access key'
+    required: true
+  aws-secret-access-key:
+    description: 'AWS secret access key'
+    required: true
+  aws-region:
+    description: 'AWS region'
+    required: true
+  ecr-repo:
+    description: 'ECR repo name'
+    required: true
+  ecr-tag:
+    description: 'ECR tag'
+    required: true
+  app-dir:
+    description: 'APP source coude dir'
+    required: true
+    default: './app'
+  dockerfile:
+    description: 'Dockerfile to build the image'
+    required: true
+    default: './Dockerfile'
+outputs:
+  ecr-image:
+    description: 'Full address of the ECR image'
+    value: ${{ steps.build-push.outputs.ecr-image }}
+
+runs:
+  using: "composite"
+  steps:
+  - name: Configure AWS credentials
+    uses: aws-actions/configure-aws-credentials@v1
+    with:
+      aws-access-key-id: ${{ inputs.aws-access-key-id }}
+      aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+      aws-region: ${{ inputs.aws-region }}
+  - name: Login to Amazon ECR
+    id: login-ecr
+    uses: aws-actions/amazon-ecr-login@v1
+  - name: Build, tag, and push image to Amazon ECR
+    id: build-push
+    shell: bash
+    env:
+      ECR_IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repo }}:${{ inputs.ecr-tag }}"
+    run: |
+      docker build -f ${{ inputs.dockerfile }} -t $ECR_IMAGE ${{ inputs.app-dir }}
+      docker push $ECR_IMAGE
+      echo "::set-output name=ecr-image::$(echo $ECR_IMAGE)"
