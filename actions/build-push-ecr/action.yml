@@ -19,7 +19,7 @@ inputs:
   app-dir:
     description: 'APP source coude dir'
     required: true
-    default: './app'
+    default: './'
   dockerfile:
     description: 'Dockerfile to build the image'
     required: true
