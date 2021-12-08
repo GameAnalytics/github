@@ -14,11 +14,11 @@ inputs:
     description: 'AWS region'
     required: true
   ecr-repo:
-    description: 'ECR repo name'
-    required: true
+    description: 'ECR repo name. Defaults to GH repo name.'
+    required: false
   ecr-tag:
-    description: 'ECR tag'
-    required: true
+    description: 'ECR tag. Defaults to current tag.'
+    required: false
   docker-build-args:
     description: 'Args passed to docker build'
     required: false
@@ -31,6 +31,25 @@ outputs:
 runs:
   using: "composite"
   steps:
+  ## REPO
+  # it is not ok to use "set-env"
+  # https://github.blog/changelog/2020-10-01-github-actions-deprecating-set-env-and-add-path-commands/
+  - name: set REPO
+    shell: bash
+    run: |
+      [ ! -z "${{ inputs.ecr-repo }}" ] \
+        && echo "REPO=${{ inputs.ecr-repo }}" \
+        || echo "REPO=$(echo $GITHUB_REPOSITORY | cut -d/ -f2)" \
+      >> $GITHUB_ENV
+  ## TAG
+  - name: set TAG
+    shell: bash
+    run: |
+      [ ! -z "${{ inputs.ecr-tag }}" ] \
+        && echo "TAG=${{ inputs.ecr-tag }}" \
+        || echo "TAG=${GITHUB_REF/refs\/tags\//}" \
+      >> $GITHUB_ENV
+  ##
   - name: Assume AWS role
     if: ${{ inputs.aws-role-to-assume }}
     uses: aws-actions/configure-aws-credentials@v1.6.0
@@ -51,7 +70,7 @@ runs:
     id: build-push
     shell: bash
     env:
-      ECR_IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repo }}:${{ inputs.ecr-tag }}"
+      ECR_IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ env.REPO }}:${{ env.TAG }}"
     run: |
       docker build -t $ECR_IMAGE ${{ inputs.docker-build-args }}
       docker push $ECR_IMAGE
