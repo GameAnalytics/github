@@ -16,9 +16,9 @@ pushes the docker image to the ECR repo.
       with:
         aws-role-to-assume: arn:aws:iam::123456789012:role/my-gh-repo-role
         aws-region: us-east-1
-        ecr-repo: my-ecr-repo
-        ecr-tag: 0.0.1
-        dockerfile: ./Dockerfile
+        ecr-repo: <DEFAULTS TO CURRENT REPO NAME>
+        ecr-tag: <DEFAULTS TO CURRENT GIT TAG>
+        docker-build-args: <DEFAULTS TO "-f ./Dockerfile .">
 ```
 
 # Depends
