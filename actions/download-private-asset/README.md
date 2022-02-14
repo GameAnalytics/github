@@ -1,9 +1,9 @@
-# Install private repo asset with PAT (Personal Access Token)
+# Download private repo asset with PAT (Personal Access Token)
 
 ## Usage
 
 ```yaml
-    - uses: gameanalytics/github/actions/install-private-asset@v1
+    - uses: gameanalytics/github/actions/download-private-asset@v0
       with:
         repo: orgname/reponame
         version: 1.0.0
@@ -17,7 +17,7 @@
 Or
 
 ```yaml
-    - uses: gameanalytics/github/actions/install-private-asset@v1
+    - uses: gameanalytics/github/actions/download-private-asset@v0
       with:
         repo: orgname/reponame
         version: latest
