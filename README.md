@@ -11,6 +11,7 @@ Number of helpful actions for GitHub Actions
 
 * [build-push-ecr](./actions/build-push-ecr/README.md)
 
+* [download-private-asset](./actions/download-private-asset/README.md)
 
 # License
 This code is made available under the MIT license.

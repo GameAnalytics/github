@@ -1,0 +1,25 @@
+name: 'Install Private Asset'
+description: 'Install asset from private GitHub repository'
+
+inputs:
+  repo:
+    description: 'Repository name'
+    required: true
+  version:
+    description: 'Version of the asset to download'
+    required: true
+  asset:
+    description: 'Name of the asset to download'
+    required: true
+
+outputs:
+  location:
+    description: 'The output path of the downloaded asset'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.repo }}
+    - ${{ inputs.version }}
+    - ${{ inputs.asset }}
