@@ -4,7 +4,6 @@ RUN apk add --no-cache \
   bash \
   ca-certificates \
   curl \
-  wget \
   jq
 
 COPY download-private-asset.sh /usr/bin/download-private-asset.sh

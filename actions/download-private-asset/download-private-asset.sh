@@ -34,9 +34,10 @@ if [ "$asset_id" = "null" ]; then
   exit 1
 fi;
 
-wget -q --auth-no-challenge --header='Accept:application/octet-stream' \
-  https://$TOKEN:@api.github.com/repos/$REPO/releases/assets/$asset_id \
-  -O $FILE
+curl -Lj \
+     -o $FILE \
+     -H 'Accept:application/octet-stream' \
+     https://$TOKEN:@api.github.com/repos/$REPO/releases/assets/$asset_id
 
 # Output
 location="`pwd`/$FILE"
