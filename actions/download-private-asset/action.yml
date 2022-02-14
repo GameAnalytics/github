@@ -23,4 +23,3 @@ runs:
     - ${{ inputs.repo }}
     - ${{ inputs.version }}
     - ${{ inputs.asset }}
-    - ${{ inputs.pat }}
