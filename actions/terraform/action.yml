@@ -13,9 +13,11 @@ inputs:
     required: false
     default: '.'
   tfsec_args:
-    description: 'Args to pass through to tfsec'
+    description: 'Additional args to pass through to tfsec'
     required: false
-    default: ''
+  tfsec_soft_fail:
+    description: 'Set to true if you do not want tfsec checks to break the build'
+    required: false
 
 runs:
   using: 'composite'
@@ -70,12 +72,8 @@ runs:
             errorMessage: Resource is missing tags declared as necessary in github action
         EOF
     - name: tfsec scan
-      uses: aquasecurity/tfsec-pr-commenter-action@v1.2.0
+      uses: aquasecurity/tfsec-action@v1.0.2
       with:
-        tfsec_args: ${{ inputs.tfsec_args }}
+        additional_args: ${{ inputs.tfsec_args }}
         working_directory: ${{ inputs.working_directory }}
-        github_token: ${{ github.token }}
-    - name: tfsec results
-      shell: bash
-      run: |
-        test -f results.json && cat results.json && exit 1
+        soft_fail: ${{ inputs.tfsec_soft_fail }}
