@@ -1,0 +1,81 @@
+name: Terraform Checks
+description: Runs checks against terraform modules to enforce best practices
+
+inputs:
+  tags:
+    description: 'Tags that are required to appear on resources. Accepts a comma separated string.'
+    required: false
+  resources:
+    description: 'Resources that should have required tags. Accepts a comma separated string.'
+    required: false
+  working_directory:
+    description: 'Working directory, defaults to current directory'
+    required: false
+    default: '.'
+  tfsec_args:
+    description: 'Args to pass through to tfsec'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+    - name: Format
+      shell: bash
+      run: terraform fmt -recursive -check -diff "${{ inputs.working_directory }}"
+    - name: Generate tag checks
+      if: inputs.tags != '' && inputs.resources != ''
+      shell: bash
+      run: |
+        mkdir "${{ inputs.working_directory }}/.tfsec"
+        CHECKS_FILE="${{ inputs.working_directory }}/.tfsec/action_tfchecks.yaml"
+
+        IFS="," read -ra RESOURCES <<< "${{ inputs.resources }}"
+        IFS="," read -ra TAGS <<< "${{ inputs.tags }}"
+
+        cat <<EOF > "${CHECKS_FILE}"
+        checks:
+          - code: GHA001
+            description: Check if resources have the required tags.
+            requiredTypes:
+              - resource
+            requiredLabels:
+        EOF
+
+        for i in "${RESOURCES[@]}"
+        do
+          cat <<EOF >> "${CHECKS_FILE}"
+              - ${i}
+        EOF
+        done
+
+        cat <<EOF >> "${CHECKS_FILE}"
+            severity: ERROR
+            matchSpec:
+              action: "and"
+              predicateMatchSpec:
+        EOF
+
+        for i in "${TAGS[@]}"
+        do
+        cat <<EOF >> "${CHECKS_FILE}"
+              - name: tags
+                action: contains
+                value: ${i}
+        EOF
+        done
+        cat <<EOF >> "${CHECKS_FILE}"
+            errorMessage: Resource is missing tags declared as necessary in github action
+        EOF
+    - name: tfsec scan
+      uses: aquasecurity/tfsec-pr-commenter-action@v1.2.0
+      with:
+        tfsec_args: ${{ inputs.tfsec_args }}
+        working_directory: ${{ inputs.working_directory }}
+        github_token: ${{ github.token }}
+    - name: tfsec results
+      shell: bash
+      run: |
+        test -f results.json && cat results.json && exit 1
