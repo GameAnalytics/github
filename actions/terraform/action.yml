@@ -37,40 +37,39 @@ runs:
         IFS="," read -ra RESOURCES <<< "${{ inputs.resources }}"
         IFS="," read -ra TAGS <<< "${{ inputs.tags }}"
 
-        cat <<EOF > "${CHECKS_FILE}"
+        RESOURCE_LIST=$(
+        for r in "${RESOURCES[@]}"
+        do
+        cat <<EOM
+              - ${r}
+        EOM
+        done)
+
+        cat <<EOM > "${CHECKS_FILE}"
         checks:
-          - code: GHA001
-            description: Check if resources have the required tags.
+        EOM
+
+        for ((i=0; i<${#TAGS[@]}; ++i))
+        do
+        CODE=$(printf "GHA%03d" $i)
+        cat <<EOM >> "${CHECKS_FILE}"
+          - code: ${CODE}
+            description: Check if resources have the required tag '${TAGS[${i}]}'.
             requiredTypes:
               - resource
             requiredLabels:
-        EOF
+        ${RESOURCE_LIST}
+        EOM
 
-        for i in "${RESOURCES[@]}"
-        do
-          cat <<EOF >> "${CHECKS_FILE}"
-              - ${i}
-        EOF
-        done
-
-        cat <<EOF >> "${CHECKS_FILE}"
+        cat <<EOM >> "${CHECKS_FILE}"
             severity: ERROR
             matchSpec:
-              action: "and"
-              predicateMatchSpec:
-        EOF
-
-        for i in "${TAGS[@]}"
-        do
-        cat <<EOF >> "${CHECKS_FILE}"
-              - name: tags
-                action: contains
-                value: ${i}
-        EOF
+              name: tags
+              action: contains
+              value: ${TAGS[${i}]}
+            errorMessage: Resource is missing the required tag '${TAGS[${i}]}'
+        EOM
         done
-        cat <<EOF >> "${CHECKS_FILE}"
-            errorMessage: Resource is missing tags declared as necessary in github action
-        EOF
     - name: tfsec scan
       uses: aquasecurity/tfsec-action@v1.0.2
       with:

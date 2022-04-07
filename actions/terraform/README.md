@@ -28,22 +28,30 @@ Note that the check only confirms existence of the tag, not that the content is 
 
 ```yaml
   checks:
-    - code: GHA001
-      description: Check if resources have the required tags.
+    - code: GHA000
+      description: Check if resources have the required tag 'CostCentre'
       requiredTypes:
         - resource
       requiredLabels:
         - aws_dynamodb_table
         - aws_ec2_instance
-  severity: ERROR
-  matchSpec:
-    action: "and"
-    predicateMatchSpec:
-      - name: tags
+      severity: ERROR
+      matchSpec:
+        name: tags
         action: contains
         value: CostCentre
-      - name: tags
+      errorMessage: Resource is missing the required tag 'CostCentre'
+    - code: GHA001
+      description: Check if resources have the required tag 'Service'
+      requiredTypes:
+        - resource
+      requiredLabels:
+        - aws_dynamodb_table
+        - aws_ec2_instance
+      severity: ERROR
+      matchSpec:
+        name: tags
         action: contains
         value: Service
-  errorMessage: Resource is missing tags declared as necessary in github action
+      errorMessage: Resource is missing the required tag 'Service'
 ```
