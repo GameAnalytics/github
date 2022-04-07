@@ -1,0 +1,78 @@
+name: Terraform Checks
+description: Runs checks against terraform modules to enforce best practices
+
+inputs:
+  tags:
+    description: 'Tags that are required to appear on resources. Accepts a comma separated string.'
+    required: false
+  resources:
+    description: 'Resources that should have required tags. Accepts a comma separated string.'
+    required: false
+  working_directory:
+    description: 'Working directory, defaults to current directory'
+    required: false
+    default: '.'
+  tfsec_args:
+    description: 'Additional args to pass through to tfsec'
+    required: false
+  tfsec_soft_fail:
+    description: 'Set to true if you do not want tfsec checks to break the build'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+    - name: Format
+      shell: bash
+      run: terraform fmt -recursive -check -diff "${{ inputs.working_directory }}"
+    - name: Generate tag checks
+      if: inputs.tags != '' && inputs.resources != ''
+      shell: bash
+      run: |
+        mkdir -p "${{ inputs.working_directory }}/.tfsec"
+        CHECKS_FILE="${{ inputs.working_directory }}/.tfsec/action_tfchecks.yaml"
+
+        IFS="," read -ra RESOURCES <<< "${{ inputs.resources }}"
+        IFS="," read -ra TAGS <<< "${{ inputs.tags }}"
+
+        RESOURCE_LIST=$(
+        for r in "${RESOURCES[@]}"
+        do
+        cat <<EOM
+              - ${r}
+        EOM
+        done)
+
+        cat <<EOM > "${CHECKS_FILE}"
+        checks:
+        EOM
+
+        for ((i=0; i<${#TAGS[@]}; ++i))
+        do
+        CODE=$(printf "GHA%03d" $i)
+        cat <<EOM >> "${CHECKS_FILE}"
+          - code: ${CODE}
+            description: Check if resources have the required tag '${TAGS[${i}]}'.
+            requiredTypes:
+              - resource
+            requiredLabels:
+        ${RESOURCE_LIST}
+        EOM
+
+        cat <<EOM >> "${CHECKS_FILE}"
+            severity: ERROR
+            matchSpec:
+              name: tags
+              action: contains
+              value: ${TAGS[${i}]}
+            errorMessage: Resource is missing the required tag '${TAGS[${i}]}'
+        EOM
+        done
+    - name: tfsec scan
+      uses: aquasecurity/tfsec-action@v1.0.2
+      with:
+        additional_args: ${{ inputs.tfsec_args }}
+        working_directory: ${{ inputs.working_directory }}
+        soft_fail: ${{ inputs.tfsec_soft_fail }}
