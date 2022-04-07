@@ -31,7 +31,7 @@ runs:
       if: inputs.tags != '' && inputs.resources != ''
       shell: bash
       run: |
-        mkdir "${{ inputs.working_directory }}/.tfsec"
+        mkdir -p "${{ inputs.working_directory }}/.tfsec"
         CHECKS_FILE="${{ inputs.working_directory }}/.tfsec/action_tfchecks.yaml"
 
         IFS="," read -ra RESOURCES <<< "${{ inputs.resources }}"
