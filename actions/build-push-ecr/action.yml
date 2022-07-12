@@ -23,6 +23,11 @@ inputs:
     description: 'Args passed to docker build'
     required: false
     default: '-f ./Dockerfile .'
+  docker-use-build-kit:
+    description: 'By using BuildKit, users should see an improvement on performance, storage management, feature functionality, and security.'
+    required: false
+    default: "0"
+
 outputs:
   ecr-image:
     description: 'Full address of the ECR image'
@@ -71,6 +76,7 @@ runs:
     shell: bash
     env:
       ECR_IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ env.REPO }}:${{ env.TAG }}"
+      DOCKER_BUILDKIT: ${{ inputs.docker-use-build-kit }}
     run: |
       docker build -t $ECR_IMAGE ${{ inputs.docker-build-args }}
       docker push $ECR_IMAGE
