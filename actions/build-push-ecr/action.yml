@@ -1,5 +1,5 @@
 name: ECR image
-description: Builds and pushes AWS ECR image
+description: Builds and pushes AWS ECR image. Uses buildx.
 inputs:
   aws-role-to-assume:
     description: 'AWS role to assume. Use either role or access key, not both.'
@@ -23,15 +23,10 @@ inputs:
     description: 'Args passed to docker build'
     required: false
     default: '-f ./Dockerfile .'
-  docker-use-build-kit:
-    description: 'By using BuildKit, users should see an improvement on performance, storage management, feature functionality, and security.'
+  platforms:
+    description: 'Comma separated list of platforms, e.g.: linux/amd64,linux/arm64 (see docker build --platform)'
     required: false
-    default: "0"
-
-outputs:
-  ecr-image:
-    description: 'Full address of the ECR image'
-    value: ${{ steps.build-push.outputs.ecr-image }}
+    default: "linux/amd64"
 
 runs:
   using: "composite"
@@ -57,27 +52,49 @@ runs:
   ##
   - name: Assume AWS role
     if: ${{ inputs.aws-role-to-assume }}
-    uses: aws-actions/configure-aws-credentials@v1.6.0
+    uses: aws-actions/configure-aws-credentials@v1.7.0
     with:
       role-to-assume: ${{ inputs.aws-role-to-assume }}
       aws-region: ${{ inputs.aws-region }}
   - name: Configure AWS credentials
     if: ${{ !inputs.aws-role-to-assume }}
-    uses: aws-actions/configure-aws-credentials@v1.6.0
+    uses: aws-actions/configure-aws-credentials@v1.7.0
     with:
       aws-access-key-id: ${{ inputs.aws-access-key-id }}
       aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
       aws-region: ${{ inputs.aws-region }}
   - name: Login to Amazon ECR
     id: login-ecr
-    uses: aws-actions/amazon-ecr-login@v1
-  - name: Build, tag, and push image to Amazon ECR
+    uses: aws-actions/amazon-ecr-login@v1.5.3
+  -
+    name: Set up QEMU
+    if: inputs.platforms != 'linux/amd64'
+    uses: docker/setup-qemu-action@v2.1.0
+  -
+    name: Set up Docker Buildx
+    uses: docker/setup-buildx-action@v2.2.1
+    with:
+      platforms: ${{ inputs.platforms }}
+      install: true # enable buildx by default
+  -
+    name: Build, tag, and push image to Amazon ECR
     id: build-push
     shell: bash
     env:
-      ECR_IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ env.REPO }}:${{ env.TAG }}"
-      DOCKER_BUILDKIT: ${{ inputs.docker-use-build-kit }}
+      ECR_REPO: "${{ steps.login-ecr.outputs.registry }}/${{ env.REPO }}"
+      TAG: ${{ env.TAG }}
+      PLATFORMS: ${{ inputs.platforms }}
     run: |
-      docker build -t $ECR_IMAGE ${{ inputs.docker-build-args }}
-      docker push $ECR_IMAGE
-      echo "::set-output name=ecr-image::$(echo $ECR_IMAGE)"
+      set -x
+      export IFS=",";
+      # AWS lambdas do not support a single image with multiple platforms, that
+      # is why image for each platform has to be build, tagged and pushed
+      # separately.
+      for p in $PLATFORMS; do
+        if [ $p == "linux/amd64" ]; then
+          EXTRA_TAG=""
+        else
+          EXTRA_TAG="-${p#"linux/"}"
+        fi
+        docker build --push --platform=$p -t "${ECR_REPO}:${TAG}${EXTRA_TAG}" ${{ inputs.docker-build-args }}
+      done
