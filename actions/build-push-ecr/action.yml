@@ -96,5 +96,8 @@ runs:
         else
           EXTRA_TAG="-${p#"linux/"}"
         fi
-        docker build --push --platform=$p -t "${ECR_REPO}:${TAG}${EXTRA_TAG}" ${{ inputs.docker-build-args }}
+        # there is a nuance introduced by buildx >= 0.10 which builds
+        # multiplatform index even if only one platform is specified. Which
+        # doesn't work with aws lambda, hence `--provenance=false`
+        docker build --push --provenance=false --platform=$p -t "${ECR_REPO}:${TAG}${EXTRA_TAG}" ${{ inputs.docker-build-args }}
       done
