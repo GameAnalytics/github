@@ -1,0 +1,72 @@
+name: Upgrade Erlang and Elixir
+description: Resolves target Erlang/Elixir versions, updates version numbers in CI files, and opens a pull request.
+
+inputs:
+  target_erlang_version:
+    description: 'Target Erlang version, e.g. "22.3.4", "22.x" or ">22"'
+    required: true
+  target_elixir_version:
+    description: 'Target Elixir version, e.g. "1.19.5", "1.x" or ">1.19"'
+    required: true
+  deploy_github_token:
+    description: 'GitHub token with permission to create pull requests'
+    required: true
+  files:
+    description: 'Newline-separated list of workflow files to update OTP_VER and ELIXIR_VER in'
+    required: false
+    default: |
+      .github/workflows/ci.yml
+      .github/workflows/release.yml
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      with:
+        persist-credentials: false
+    - name: Setup Erlang/Elixir
+      id: setup_beam
+      uses: erlef/setup-beam@fc68ffb90438ef2936bbb3251622353b3dcb2f93 # v1
+      with:
+        otp-version: ${{ inputs.target_erlang_version }}
+        elixir-version: ${{ inputs.target_elixir_version }}
+    - name: Update version numbers
+      id: version_numbers
+      shell: python
+      env:
+        NEW_OTP_VERSION: ${{ steps.setup_beam.outputs.otp-version }}
+        NEW_ELIXIR_VERSION: ${{ steps.setup_beam.outputs.elixir-version }}
+        FILES: ${{ inputs.files }}
+      run: |
+        import os
+        import re
+        import fileinput
+
+        print(f'New version numbers: "{os.environ['NEW_OTP_VERSION']}", "{os.environ['NEW_ELIXIR_VERSION']}"')
+        otp_version = re.match(r'OTP-([0-9.]+)$', os.environ['NEW_OTP_VERSION']).group(1)
+        elixir_version = re.match(r'v([0-9.]+)-otp', os.environ['NEW_ELIXIR_VERSION']).group(1)
+
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write(f'otp_version={otp_version}\nelixir_version={elixir_version}\n')
+
+        files = [f for f in os.environ['FILES'].splitlines() if f.strip()]
+        for line in fileinput.input(files, inplace=True):
+          if re.match(r'\s*OTP_VER: ', line):
+            print(re.sub(r'OTP_VER: .*$', f"OTP_VER: '{otp_version}'", line), end='')
+          elif re.match(r'\s*ELIXIR_VER: ', line):
+            print(re.sub(r'ELIXIR_VER: .*$', f"ELIXIR_VER: '{elixir_version}'", line), end='')
+          else:
+            print(line, end='')
+    - name: Check changes
+      shell: bash
+      run: |
+        echo New version numbers: Erlang ${{ steps.version_numbers.outputs.otp_version }}, Elixir ${{ steps.version_numbers.outputs.elixir_version }}
+        git --no-pager diff
+    - name: Create pull request
+      uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+      with:
+        token: ${{ inputs.deploy_github_token }}
+        title: Upgrade to Erlang ${{ steps.version_numbers.outputs.otp_version }}, Elixir ${{ steps.version_numbers.outputs.elixir_version }}
+        commit-message: Upgrade to Erlang ${{ steps.version_numbers.outputs.otp_version }}, Elixir ${{ steps.version_numbers.outputs.elixir_version }}
+        branch: upgrade-erlang-elixir
+        delete-branch: true
