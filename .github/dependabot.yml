@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/actions/build-push-ecr"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "github-actions"
+    directory: "/actions/download-private-asset"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "github-actions"
+    directory: "/actions/terraform"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "github-actions"
+    directory: "/actions/upgrade-erlang-elixir"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
