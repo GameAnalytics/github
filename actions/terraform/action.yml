@@ -71,7 +71,7 @@ runs:
         EOM
         done
     - name: tfsec scan
-      uses: aquasecurity/tfsec-action@v1.0.2
+      uses: aquasecurity/tfsec-action@v1.0.3
       with:
         additional_args: ${{ inputs.tfsec_args }}
         working_directory: ${{ inputs.working_directory }}
