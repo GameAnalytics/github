@@ -23,7 +23,7 @@ runs:
   using: 'composite'
   steps:
     - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v1
+      uses: hashicorp/setup-terraform@v4
     - name: Format
       shell: bash
       run: terraform fmt -recursive -check -diff "${{ inputs.working_directory }}"
