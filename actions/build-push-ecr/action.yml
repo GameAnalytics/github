@@ -65,7 +65,7 @@ runs:
       aws-region: ${{ inputs.aws-region }}
   - name: Login to Amazon ECR
     id: login-ecr
-    uses: aws-actions/amazon-ecr-login@v1.5.3
+    uses: aws-actions/amazon-ecr-login@v2.1.6
   -
     name: Set up QEMU
     if: inputs.platforms != 'linux/amd64'
