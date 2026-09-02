@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     # yamllint comes preinstalled on the GitHub ubuntu runners, so this step
     # needs no install. `-f github` writes annotations onto the diff.

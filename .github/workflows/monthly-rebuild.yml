@@ -106,7 +106,7 @@ jobs:
       previous-version: ${{ steps.result.outputs.previous-version }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
       with:
         # Needed to read the full tag list when computing the next version.
         fetch-depth: 0
