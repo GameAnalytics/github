@@ -1,0 +1,7 @@
+# Style rules stay loose: this repo holds YAML that other repos consume, so the
+# check must catch broken syntax and not argue about layout.
+extends: relaxed
+
+rules:
+  # Shell scripts inside `run:` blocks do not fit in 80 columns.
+  line-length: disable

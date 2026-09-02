@@ -1,0 +1,29 @@
+name: CI
+
+# Checks every YAML file in the repo. The repo holds actions and reusable
+# workflows, so a YAML file that does not parse breaks each caller repo that
+# uses it.
+
+on:
+  pull_request:
+  push:
+    branches: [v0]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  yaml:
+    name: YAML syntax
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # yamllint comes preinstalled on the GitHub ubuntu runners, so this step
+    # needs no install. `-f github` writes annotations onto the diff.
+    # `--strict` makes a warning fail the job, so a rule that fires is never
+    # silent. The rules are in .yamllint.yml.
+    - name: Check YAML
+      run: yamllint --strict -f github .

@@ -1,0 +1,239 @@
+name: Rebuild Release
+
+# Cuts a PATCH-bumped release when the source did not change. Use this workflow
+# in a repo that builds a container image and pins no package versions. A
+# rebuild with no source change picks up base-image and OS security patches.
+#
+# This workflow creates a release only. It builds nothing. The release starts
+# the `release: [published]` trigger in the build workflow of the calling repo.
+#
+# Guards keep the release rate low and keep the release inside work hours:
+#  * The calling repo sets the cron window.
+#  * A work-hours check runs again at run time. GitHub delays scheduled runs
+#    under load, so the cron expression alone is not enough.
+#  * A recency check stops the release if a recent release already exists.
+#
+# See ./monthly-rebuild.md for usage.
+
+on:
+  workflow_call:
+    inputs:
+      min-days-since-release:
+        description: >-
+          Minimum days since the most recent release. The workflow skips if a
+          release is newer than this. Pre-releases count.
+        required: false
+        type: number
+        default: 14
+      skip-weekends:
+        description: "Skip a scheduled run on Saturday and Sunday, UTC."
+        required: false
+        type: boolean
+        default: true
+      work-hours-start:
+        description: "First UTC hour of the work-hours window. Inclusive."
+        required: false
+        type: number
+        default: 10
+      work-hours-end:
+        description: "Last UTC hour of the work-hours window. Exclusive."
+        required: false
+        type: number
+        default: 16
+      release-branch:
+        description: "Branch to release from. Defaults to the default branch."
+        required: false
+        type: string
+        default: ${{ github.event.repository.default_branch }}
+      tag-prefix:
+        description: >-
+          Literal prefix before MAJOR.MINOR.PATCH in a tag name. Use an empty
+          string for bare `1.2.3` tags. Regular expression characters are not
+          supported.
+        required: false
+        type: string
+        default: v
+      release-notes:
+        description: >-
+          Body of the release. If empty, the workflow writes a default note that
+          names the previous version.
+        required: false
+        type: string
+        default: ""
+      force:
+        description: "Ignore the recency guard."
+        required: false
+        type: boolean
+        default: false
+      dry-run:
+        description: "Report the decision without creating a release."
+        required: false
+        type: boolean
+        default: false
+      runs-on:
+        description: "Runner label for the job."
+        required: false
+        type: string
+        default: ubuntu-latest
+    secrets:
+      DEPLOY_GITHUB_TOKEN:
+        description: >-
+          PAT used to create the release. GITHUB_TOKEN does not work here:
+          events raised by the default token do not start other workflow runs,
+          so the build workflow would never run.
+        required: true
+    outputs:
+      released:
+        description: "`true` if the workflow created a release."
+        value: ${{ jobs.rebuild.outputs.released }}
+      version:
+        description: "Tag of the new release. Empty if no release was computed."
+        value: ${{ jobs.rebuild.outputs.version }}
+      previous-version:
+        description: "Tag the new release was bumped from."
+        value: ${{ jobs.rebuild.outputs.previous-version }}
+
+jobs:
+  rebuild:
+    runs-on: ${{ inputs.runs-on }}
+
+    permissions:
+      contents: read
+
+    outputs:
+      released: ${{ steps.result.outputs.released }}
+      version: ${{ steps.result.outputs.version }}
+      previous-version: ${{ steps.result.outputs.previous-version }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        # Needed to read the full tag list when computing the next version.
+        fetch-depth: 0
+
+    # Scheduled runs must stay inside work hours. A release can raise a
+    # follow-up PR, and such a PR must not block dependency updates out of
+    # hours. Manual dispatch is exempt. To release at any hour, set the window
+    # to 0 and 24 and set `skip-weekends` to false.
+    - name: Check work-hours window
+      if: github.event_name == 'schedule'
+      env:
+        SKIP_WEEKENDS: ${{ inputs.skip-weekends }}
+        WORK_START: ${{ inputs.work-hours-start }}
+        WORK_END: ${{ inputs.work-hours-end }}
+      run: |
+        set -euo pipefail
+        dow=$(date -u +%u)
+        hour=$(date -u +%-H)
+        if [ "$SKIP_WEEKENDS" = "true" ] && [ "$dow" -gt 5 ]; then
+          echo "::notice::Weekend (day $dow). Skipping."
+          echo "SKIP=1" >> "$GITHUB_ENV"
+          exit 0
+        fi
+        if [ "$hour" -lt "$WORK_START" ] || [ "$hour" -ge "$WORK_END" ]; then
+          echo "::notice::${hour}:00 UTC is outside the ${WORK_START}:00-${WORK_END}:00 window. Skipping."
+          echo "SKIP=1" >> "$GITHUB_ENV"
+          exit 0
+        fi
+        echo "Inside window: day $dow, ${hour}:00 UTC."
+
+    # A recent release means a freshly patched image already exists, so another
+    # rebuild gains nothing. Pre-releases count, because that is how release
+    # candidates appear. This step reads releases and not tags on purpose: a
+    # lightweight tag reports the date of the commit it points at, not the date
+    # someone pushed it, so tag dates are useless here.
+    - name: Check for a recent release
+      if: env.SKIP != '1'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        MIN_DAYS: ${{ inputs.min-days-since-release }}
+        FORCE: ${{ inputs.force }}
+      run: |
+        set -euo pipefail
+        # Compute the maximum explicitly. `gh release list` is not strictly
+        # date-ordered, so `--limit 1` can return an older release.
+        last=$(gh release list --limit 100 --json publishedAt \
+               --jq 'map(.publishedAt) | max')
+        if [ -z "$last" ] || [ "$last" = "null" ]; then
+          echo "No previous release found. Proceeding."
+          exit 0
+        fi
+        age=$(( ( $(date -u +%s) - $(date -u -d "$last" +%s) ) / 86400 ))
+        echo "Most recent release was $last ($age days ago)."
+        if [ "$age" -lt "$MIN_DAYS" ]; then
+          if [ "$FORCE" = "true" ]; then
+            echo "::warning::Only $age days since the last release, but force is set."
+          else
+            echo "::notice::Only $age days since the last release (need $MIN_DAYS). Skipping."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+        fi
+
+    - name: Compute the next patch version
+      if: env.SKIP != '1'
+      env:
+        RELEASE_BRANCH: ${{ inputs.release-branch }}
+        TAG_PREFIX: ${{ inputs.tag-prefix }}
+      run: |
+        set -euo pipefail
+        # Do not rely on what checkout left behind. Fetching the branch and the
+        # tags explicitly makes FETCH_HEAD and the tag list certain to be there.
+        git fetch --force --tags origin "$RELEASE_BRANCH"
+        # Match strict MAJOR.MINOR.PATCH only. This excludes `-rcN` pre-release
+        # tags and any malformed tag.
+        latest=$(git tag --list --merged FETCH_HEAD --sort=-v:refname \
+                 | grep -E "^${TAG_PREFIX}[0-9]+\.[0-9]+\.[0-9]+$" | head -1)
+        if [ -z "$latest" ]; then
+          echo "::error::Found no ${TAG_PREFIX}X.Y.Z tag on the tip of ${RELEASE_BRANCH}."
+          exit 1
+        fi
+        IFS=. read -r major minor patch <<< "${latest#"$TAG_PREFIX"}"
+        next="${TAG_PREFIX}${major}.${minor}.$((patch + 1))"
+        if git rev-parse -q --verify "refs/tags/$next" > /dev/null; then
+          echo "::error::Tag $next already exists but is not merged into ${RELEASE_BRANCH}."
+          exit 1
+        fi
+        echo "Latest release: $latest. Next: $next."
+        echo "LATEST=$latest" >> "$GITHUB_ENV"
+        echo "NEXT=$next" >> "$GITHUB_ENV"
+
+    - name: Create the release
+      if: env.SKIP != '1' && inputs.dry-run != true
+      env:
+        GH_TOKEN: ${{ secrets.DEPLOY_GITHUB_TOKEN }}
+        RELEASE_BRANCH: ${{ inputs.release-branch }}
+        RELEASE_NOTES: ${{ inputs.release-notes }}
+      run: |
+        set -euo pipefail
+        # Write the notes explicitly. Generated notes are empty when no commits
+        # changed between the two tags.
+        notes="$RELEASE_NOTES"
+        if [ -z "$notes" ]; then
+          notes="Automated rebuild release. Picks up base-image and OS security patches. No source changes since ${LATEST}."
+        fi
+        gh release create "$NEXT" \
+          --target "$RELEASE_BRANCH" \
+          --title "$NEXT" \
+          --notes "$notes"
+        echo "::notice::Created release $NEXT."
+
+    - name: Report a dry run
+      if: env.SKIP != '1' && inputs.dry-run == true
+      run: echo "::notice::Dry run. Would have created release $NEXT from $LATEST."
+
+    - name: Report the outcome
+      id: result
+      env:
+        DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        set -euo pipefail
+        if [ "${SKIP:-}" = "1" ] || [ "$DRY_RUN" = "true" ]; then
+          released=false
+        else
+          released=true
+        fi
+        {
+          echo "released=$released"
+          echo "version=${NEXT:-}"
+          echo "previous-version=${LATEST:-}"
+        } >> "$GITHUB_OUTPUT"

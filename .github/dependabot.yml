@@ -1,5 +1,12 @@
 version: 2
 updates:
+  # Covers the reusable workflows in /.github/workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
   - package-ecosystem: "github-actions"
     directory: "/actions/build-push-ecr"
     schedule:
