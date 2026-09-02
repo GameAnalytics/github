@@ -13,5 +13,12 @@ Number of helpful actions for GitHub Actions
 
 * [download-private-asset](./actions/download-private-asset/README.md)
 
+# reusable workflows
+Workflows that a caller repo runs with `uses` at job level. Intentionally sit at 
+a different level to composite actions.
+Useful if you want to preserve access to secrets from the calling workflow.
+
+* [monthly-rebuild](./.github/workflows/monthly-rebuild.md)
+
 # License
 This code is made available under the MIT license.
