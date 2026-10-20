@@ -75,7 +75,6 @@ runs:
     uses: docker/setup-buildx-action@v4.4.1
     with:
       platforms: ${{ inputs.platforms }}
-      install: true # enable buildx by default
   -
     name: Build, tag, and push image to Amazon ECR
     id: build-push
@@ -88,7 +87,7 @@ runs:
       set -x
       export IFS=",";
       # AWS lambdas do not support a single image with multiple platforms, that
-      # is why image for each platform has to be build, tagged and pushed
+      # is why image for each platform has to be built, tagged and pushed
       # separately.
       for p in $PLATFORMS; do
         if [ $p == "linux/amd64" ]; then
@@ -99,5 +98,5 @@ runs:
         # there is a nuance introduced by buildx >= 0.10 which builds
         # multiplatform index even if only one platform is specified. Which
         # doesn't work with aws lambda, hence `--provenance=false`
-        docker build --push --provenance=false --platform=$p -t "${ECR_REPO}:${TAG}${EXTRA_TAG}" ${{ inputs.docker-build-args }}
+        docker buildx build --push --provenance=false --platform=$p -t "${ECR_REPO}:${TAG}${EXTRA_TAG}" ${{ inputs.docker-build-args }}
       done
