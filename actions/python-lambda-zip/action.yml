@@ -1,0 +1,67 @@
+name: Python Lambda zip
+description: >
+  Builds a zip-file deployment package for a Python AWS Lambda, using wheels compatible with the
+  Lambda runtime, and checks that it can be imported inside the AWS Lambda base image.
+
+inputs:
+  python-version:
+    description: >
+      Python version of the Lambda runtime, e.g. '3.11'. Determines the Lambda base image used for
+      the smoke test and which manylinux wheels are installed.
+    required: true
+  architecture:
+    description: "Lambda architecture: 'x86_64' or 'arm64'"
+    required: false
+    default: 'x86_64'
+  source-dir:
+    description: 'Directory with the Lambda code. Its contents end up at the root of the zip.'
+    required: false
+    default: 'src'
+  requirements-file:
+    description: 'Fully resolved requirements file, e.g. generated from a lock file.'
+    required: false
+    default: 'requirements.txt'
+  requirements-command:
+    description: >
+      Shell command that prints the requirements to stdout, e.g. 'pipenv requirements'. Used
+      instead of requirements-file when set. The tool it needs must already be installed.
+    required: false
+  smoke-test-glob:
+    description: >
+      Glob, relative to the root of the zip, of the modules to import in the smoke test.
+      The build fails if nothing matches.
+    required: false
+    default: '*.py'
+  output-dir:
+    description: 'Directory to put the zip in'
+    required: false
+    default: 'build'
+  zip-name:
+    description: 'File name of the zip'
+    required: false
+    default: 'package.zip'
+
+outputs:
+  zip-path:
+    description: 'Absolute path of the built zip'
+    value: ${{ steps.build.outputs.zip-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up QEMU
+      if: inputs.architecture == 'arm64'
+      uses: docker/setup-qemu-action@v4.4.0
+    - name: Build zip and smoke test it
+      id: build
+      shell: bash
+      env:
+        PYTHON_VERSION: ${{ inputs.python-version }}
+        ARCHITECTURE: ${{ inputs.architecture }}
+        SOURCE_DIR: ${{ inputs.source-dir }}
+        REQUIREMENTS_FILE: ${{ inputs.requirements-file }}
+        REQUIREMENTS_COMMAND: ${{ inputs.requirements-command }}
+        SMOKE_TEST_GLOB: ${{ inputs.smoke-test-glob }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+        ZIP_NAME: ${{ inputs.zip-name }}
+      run: ${{ github.action_path }}/build.sh

@@ -9,9 +9,21 @@ avoid breaking things. If you feel lucky you might use `v0` branch.
 # actions
 Number of helpful actions for GitHub Actions
 
-* [build-push-ecr](./actions/build-push-ecr/README.md)
+* [build-push-ecr](./actions/build-push-ecr/README.md):
+  builds and pushes an image to AWS ECR using buildx
 
-* [download-private-asset](./actions/download-private-asset/README.md)
+* [download-private-asset](./actions/download-private-asset/README.md):
+  installs a release asset from a private GitHub repository
+
+* [python-lambda-zip](./actions/python-lambda-zip/README.md):
+  builds a zip deployment package for a Python AWS Lambda using runtime-compatible
+  wheels, and checks that it loads in the AWS Lambda base image
+
+* [terraform](./actions/terraform/README.md):
+  Terraform format linting, required-tag checks and tfsec security scanning
+
+* [upgrade-erlang-elixir](./actions/upgrade-erlang-elixir/README.md):
+  resolves target Erlang/Elixir versions, updates them in CI files and opens a pull request
 
 # reusable workflows
 Workflows that a caller repo runs with `uses` at job level. Intentionally sit at 
