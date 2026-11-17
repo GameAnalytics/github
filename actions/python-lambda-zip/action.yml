@@ -1,0 +1,80 @@
+name: Python Lambda zip
+description: >
+  Builds a zip-file deployment package for a Python AWS Lambda, using wheels compatible with the
+  Lambda runtime, and checks that it can be imported inside the AWS Lambda base image.
+
+inputs:
+  python-version:
+    description: >
+      Python version of the Lambda runtime, e.g. '3.11'. Determines the Lambda base image used for
+      the smoke test and which manylinux wheels are installed.
+    required: true
+  architecture:
+    description: "Lambda architecture: 'x86_64' or 'arm64'"
+    required: true
+  source-dir:
+    description: 'Directory with the Lambda code. Its contents end up at the root of the zip.'
+    required: false
+  include:
+    description: >
+      Newline-separated paths (files or directories) to copy into the zip keeping their relative
+      path, e.g. 'app' to get an 'app' package at the root of the zip. Can be combined with source-dir.
+      At least one of source-dir and include is required.
+    required: false
+  exclude:
+    description: >
+      Newline-separated patterns of files to leave out of the zip, as for 'zip -x', matched against
+      paths in the zip, e.g. 'boto3/*' for dependencies the Lambda runtime provides. The smoke test
+      runs in the Lambda image, where such packages are available.
+    required: false
+  requirements-file:
+    description: 'Fully resolved requirements file, e.g. generated from a lock file.'
+    required: false
+    default: 'requirements.txt'
+  requirements-command:
+    description: >
+      Shell command that prints the requirements to stdout, e.g. 'pipenv requirements'. Used
+      instead of requirements-file when set. The tool it needs must already be installed.
+    required: false
+  smoke-test-glob:
+    description: >
+      Glob, relative to the root of the zip, of the modules to import in the smoke test, e.g.
+      '*.py' or 'app/*.py' (module names starting with an underscore are skipped). The build
+      fails if nothing matches.
+    required: false
+    default: '*.py'
+  output-dir:
+    description: 'Directory to put the zip in'
+    required: false
+    default: 'build'
+  zip-name:
+    description: 'File name of the zip'
+    required: false
+    default: 'package.zip'
+
+outputs:
+  zip-path:
+    description: 'Absolute path of the built zip'
+    value: ${{ steps.build.outputs.zip-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up QEMU
+      if: inputs.architecture == 'arm64'
+      uses: docker/setup-qemu-action@v4.4.0
+    - name: Build zip and smoke test it
+      id: build
+      shell: bash
+      env:
+        PYTHON_VERSION: ${{ inputs.python-version }}
+        ARCHITECTURE: ${{ inputs.architecture }}
+        SOURCE_DIR: ${{ inputs.source-dir }}
+        INCLUDE: ${{ inputs.include }}
+        EXCLUDE: ${{ inputs.exclude }}
+        REQUIREMENTS_FILE: ${{ inputs.requirements-file }}
+        REQUIREMENTS_COMMAND: ${{ inputs.requirements-command }}
+        SMOKE_TEST_GLOB: ${{ inputs.smoke-test-glob }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+        ZIP_NAME: ${{ inputs.zip-name }}
+      run: ${{ github.action_path }}/build.sh
