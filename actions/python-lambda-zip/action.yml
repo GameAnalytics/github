@@ -11,8 +11,7 @@ inputs:
     required: true
   architecture:
     description: "Lambda architecture: 'x86_64' or 'arm64'"
-    required: false
-    default: 'x86_64'
+    required: true
   source-dir:
     description: 'Directory with the Lambda code. Its contents end up at the root of the zip.'
     required: false

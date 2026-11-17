@@ -43,7 +43,7 @@ The runner needs `pip`, `zip`, `unzip` and Docker, which `ubuntu-latest` has.
 | Input | Default | Description |
 |---|---|---|
 | `python-version` | (required) | Python version of the Lambda runtime, e.g. `3.11` |
-| `architecture` | `x86_64` | `x86_64` or `arm64` (arm64 is smoke tested using QEMU emulation) |
+| `architecture` | (required) | `x86_64` or `arm64` (arm64 is smoke tested using QEMU emulation) |
 | `source-dir` | | Directory with the Lambda code; its contents end up at the root of the zip |
 | `include` | | Newline-separated paths copied into the zip keeping their relative path, e.g. `app` |
 | `exclude` | | Newline-separated patterns of files to leave out of the zip, as for `zip -x`, e.g. `boto3/*` |
