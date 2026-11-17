@@ -50,6 +50,7 @@ The runner needs `pip`, `zip`, `unzip` and Docker, which `ubuntu-latest` has.
 | `requirements-file` | `requirements.txt` | Fully resolved requirements file |
 | `requirements-command` | | Command printing the requirements, e.g. `pipenv requirements`; used instead of the file when set |
 | `smoke-test-glob` | `*.py` | Modules (relative to the zip root) to import; build fails if nothing matches |
+| `smoke-test-env` | | Newline-separated `NAME=value` variables for the smoke test; `AWS_REGION` and `AWS_DEFAULT_REGION` are always set to `us-east-1`, like in the Lambda runtime |
 | `output-dir` | `build` | Where to put the zip |
 | `zip-name` | `package.zip` | File name of the zip |
 

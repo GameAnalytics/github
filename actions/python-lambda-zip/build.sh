@@ -95,8 +95,13 @@ echo "Built $zip_path"
 mkdir -p "$stage/smoke"
 unzip -q "$zip_path" -d "$stage/smoke"
 echo "::group::Smoke test in $image ($docker_platform)"
+# The Lambda runtime always sets the region, and code often creates AWS clients at import time
+smoke_env=(-e AWS_REGION=us-east-1 -e AWS_DEFAULT_REGION=us-east-1)
+while IFS= read -r var; do
+  [[ -n "$var" ]] && smoke_env+=(-e "$var")
+done <<< "${SMOKE_TEST_ENV:-}"
 docker run --rm --platform "$docker_platform" --entrypoint python \
-  -v "$stage/smoke:/var/task:ro" -w /var/task -e GLOB="$SMOKE_TEST_GLOB" "$image" \
+  -v "$stage/smoke:/var/task:ro" -w /var/task -e GLOB="$SMOKE_TEST_GLOB" "${smoke_env[@]}" "$image" \
   -c "import glob, importlib, os
 files = glob.glob(os.environ['GLOB'], recursive=True)
 mods = sorted(f[:-3].replace('/', '.') for f in files if not os.path.basename(f).startswith('_'))
