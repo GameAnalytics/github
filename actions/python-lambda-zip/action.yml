@@ -43,6 +43,12 @@ inputs:
       fails if nothing matches.
     required: false
     default: '*.py'
+  smoke-test-env:
+    description: >
+      Newline-separated NAME=value environment variables for the smoke test, for code that reads
+      its configuration when imported. AWS_REGION and AWS_DEFAULT_REGION are always set to
+      us-east-1, as the Lambda runtime sets them.
+    required: false
   output-dir:
     description: 'Directory to put the zip in'
     required: false
@@ -75,6 +81,7 @@ runs:
         REQUIREMENTS_FILE: ${{ inputs.requirements-file }}
         REQUIREMENTS_COMMAND: ${{ inputs.requirements-command }}
         SMOKE_TEST_GLOB: ${{ inputs.smoke-test-glob }}
+        SMOKE_TEST_ENV: ${{ inputs.smoke-test-env }}
         OUTPUT_DIR: ${{ inputs.output-dir }}
         ZIP_NAME: ${{ inputs.zip-name }}
       run: ${{ github.action_path }}/build.sh
